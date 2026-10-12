@@ -16,8 +16,9 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
  * - 토스: WireMock 가짜 서버 (실제 토스 키·주소를 쓰지 않음)
  * 컨테이너와 WireMock은 JVM당 한 번만 띄우고 모든 테스트 클래스가 공유한다.
  * 동시성 테스트에서 커밋이 보여야 하므로 @Transactional은 붙이지 않는다.
+ * 동시 요청을 실제 HTTP로 보내기 위해 랜덤 포트로 서버를 띄운다 (TestRestTemplate 사용).
  */
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class IntegrationTestSupport {
 
     @ServiceConnection
