@@ -35,6 +35,7 @@ public abstract class IntegrationTestSupport {
     static void overrideProperties(DynamicPropertyRegistry registry) {
         registry.add("toss.payments.api-url", TOSS::baseUrl);
         registry.add("toss.payments.secret-key", () -> "test_sk_dummy");
+        registry.add("http.client.read-timeout", () -> "2s"); // 응답 지연 테스트를 빨리 끝내기 위해 짧게
     }
 
     @AfterEach

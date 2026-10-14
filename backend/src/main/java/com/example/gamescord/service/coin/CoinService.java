@@ -49,34 +49,6 @@ public class CoinService {
                 .build();
     }
 
-    @Transactional
-    public CoinResponseDTO chargeCoin(String loginId, CoinChargeRequestDTO requestDto) {
-        CoinPackageInfo packageInfo = COIN_PACKAGES.get(requestDto.getPackageId());
-        if (packageInfo == null) {
-            throw new IllegalArgumentException("존재하지 않는 패키지입니다.");
-        }
-
-        List<String> validPaymentMethods = List.of("카드결제", "계좌이체", "간편결제");
-        if (!validPaymentMethods.contains(requestDto.getPaymentMethod())) {
-            throw new IllegalArgumentException("유효하지 않은 결제 수단입니다.");
-        }
-
-        User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-
-        user.setPoint(user.getPoint() + packageInfo.coinAmount());
-        userRepository.saveUser(user);
-
-        Coin newCoin = new Coin();
-        newCoin.setUsers(user);
-        newCoin.setCoinAmount(packageInfo.coinAmount()); // 양수
-        newCoin.setPaymentAmount(packageInfo.paymentAmount());
-        newCoin.setPaymentMethod(requestDto.getPaymentMethod()); // Set payment method from request
-        Coin savedCoin = coinRepository.save(newCoin);
-
-        return CoinResponseDTO.success("코인이 성공적으로 충전되었습니다.", savedCoin, user.getPoint());
-    }
-
     @Transactional(readOnly = true)
     public List<CoinHistoryResponseDTO> getCoinHistory(String loginId) {
         List<Coin> coinHistory = coinRepository.findByUserLoginId(loginId);

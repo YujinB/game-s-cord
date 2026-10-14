@@ -66,6 +66,11 @@ class PaymentDefectReproductionTest extends IntegrationTestSupport {
 
     @AfterEach
     void cleanUp() {
+        // 결제가 성공하면 원장·주문·지갑 계좌도 생기므로 함께 지운다 (시스템 계좌는 남김)
+        jdbc.update("DELETE FROM ledger_entry");
+        jdbc.update("DELETE FROM ledger_transaction");
+        jdbc.update("DELETE FROM charge_order");
+        jdbc.update("DELETE FROM account WHERE owner_user_id <> 0");
         jdbc.update("DELETE c FROM coin c JOIN users u ON c.users_id = u.users_id WHERE u.login_id = ?", loginId);
         jdbc.update("DELETE FROM users WHERE login_id = ?", loginId);
     }
@@ -79,6 +84,9 @@ class PaymentDefectReproductionTest extends IntegrationTestSupport {
         System.out.printf("[결함1 관찰] status=%s, point=%d, PG 요청=%d건%n",
                 response.getStatusCode(), point(), TOSS.getAllServeEvents().size());
 
+        assertThat(response.getStatusCode().is2xxSuccessful())
+                .as("PG 승인 없이 코인을 주는 API가 열려 있음")
+                .isFalse();
         assertThat(point())
                 .as("PG 승인 없이 지급된 코인")
                 .isZero();
