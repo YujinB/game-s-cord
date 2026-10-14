@@ -1,6 +1,5 @@
 package com.example.gamescord.payment.application;
 
-import com.example.gamescord.domain.Coin;
 import com.example.gamescord.domain.User;
 import com.example.gamescord.dto.coin.CoinResponseDTO;
 import com.example.gamescord.dto.coin.TossPaymentConfirmRequestDTO;
@@ -12,9 +11,7 @@ import com.example.gamescord.payment.domain.model.CoinPackage;
 import com.example.gamescord.payment.domain.repository.ChargeOrderRepository;
 import com.example.gamescord.payment.infrastructure.toss.TossPaymentRejectedException;
 import com.example.gamescord.payment.infrastructure.toss.TossPaymentsClient;
-import com.example.gamescord.repository.coin.CoinRepository;
 import com.example.gamescord.repository.user.UserRepository;
-import com.example.gamescord.wallet.application.WalletService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,9 +27,8 @@ import java.util.UUID;
 public class ChargeService {
     private final ChargeOrderRepository chargeOrderRepository;
     private final TossPaymentsClient tossPaymentsClient;
-    private final WalletService walletService;
-    private final UserRepository userRepository;      // loginId → userId, 호환용 point
-    private final CoinRepository coinRepository;      // 호환용 충전 내역
+    private final UserRepository userRepository;      // loginId → userId
+    private final ChargeCompleter chargeCompleter;    // 확정 + 지급 (별도 빈이라 @Transactional 적용)
     private final TransactionTemplate transactionTemplate;
 
     @Transactional
@@ -82,26 +78,7 @@ public class ChargeService {
         }
         // TossPaymentUnknownException은 잡지 않음 → 토스에서는 승인됐을 수 있으므로 IN_PROGRESS로 남겨 나중에 대사
 
-        // d. DB 확정 및 코인을 한 트랜잭션으로 (하나라도 실패하면 함께 롤백)
-        return transactionTemplate.execute(s -> {
-            if (chargeOrderRepository.markDone(order.getId(), request.getPaymentKey()) != 1) {
-                throw new IllegalStateException("주문 상태가 승인 중이 아닙니다.");
-            }
-            walletService.creditCharge(order.getId(), user.getId(), order.getCoinAmount()); // 원장 UNIQUE = 멱등성 3층
-
-            // 매칭 이관 전까지 기존 기능(MatchService 등)이 User.point와 coin 내역을 읽으므로 같은 트랜잭션에서 함께 반영
-            User currentUser = userRepository.findByLoginId(loginId).orElseThrow();
-            currentUser.setPoint(currentUser.getPoint() + order.getCoinAmount());
-            userRepository.saveUser(currentUser);
-
-            Coin coin = new Coin();
-            coin.setUsers(currentUser);
-            coin.setCoinAmount(order.getCoinAmount());
-            coin.setPaymentAmount(order.getAmount());
-            coin.setPaymentMethod("토스페이먼츠");
-            Coin savedCoin = coinRepository.save(coin);
-
-            return CoinResponseDTO.success("코인이 성공적으로 충전되었습니다.", savedCoin, currentUser.getPoint());
-        });
+        // d. 확정 + 지급
+        return chargeCompleter.complete(order, request.getPaymentKey());
     }
 }

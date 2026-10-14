@@ -1,5 +1,6 @@
 package com.example.gamescord.payment.infrastructure.toss;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.web.client.RestTemplate;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 토스페이먼츠 승인 API 호출만 담당한다.
@@ -30,6 +32,7 @@ import java.util.Map;
 public class TossPaymentsClient {
 
     private static final String CONFIRM_PATH = "/v1/payments/confirm";
+    private static final String ORDER_LOOKUP_PATH = "/v1/payments/orders/";
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -63,6 +66,33 @@ public class TossPaymentsClient {
             // 5xx·타임아웃·연결 끊김: 토스에서는 승인됐을 수도 있음 → 실패로 확정하면 안 됨
             log.error("토스 승인 결과 불명 | orderId={} | cause={}", pgOrderId, e.getMessage());
             throw new TossPaymentUnknownException("토스 승인 결과를 확인할 수 없습니다.", e);
+        }
+    }
+
+    /**
+     * 주문번호로 토스 결제 상태를 조회한다 (결과 불명 주문 대사용).
+     * 결제 기록이 없으면(404) empty, 조회 자체가 실패하면(5xx·타임아웃) Unknown 예외.
+     */
+    public Optional<TossPayment> findByOrderId(String pgOrderId) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.AUTHORIZATION, "Basic " + encodedSecretKey());
+
+        try {
+            String body = restTemplate.exchange(apiUrl + ORDER_LOOKUP_PATH + pgOrderId, HttpMethod.GET,
+                    new HttpEntity<>(headers), String.class).getBody();
+            JsonNode json = objectMapper.readTree(body);
+            return Optional.of(new TossPayment(
+                    json.path("status").asText(),
+                    json.path("paymentKey").asText(null),
+                    json.path("totalAmount").asInt()));
+        } catch (HttpClientErrorException.NotFound e) {
+            return Optional.empty(); // 토스에 이 주문의 결제가 없음 → 돈이 나가지 않음
+        } catch (HttpServerErrorException | ResourceAccessException e) {
+            throw new TossPaymentUnknownException("토스 결제 조회에 실패했습니다.", e);
+        } catch (HttpClientErrorException e) {
+            throw new TossPaymentUnknownException("토스 결제 조회 요청이 거절되었습니다: " + e.getStatusCode(), e);
+        } catch (JsonProcessingException e) {
+            throw new TossPaymentUnknownException("토스 결제 조회 응답을 읽을 수 없습니다.", e);
         }
     }
 

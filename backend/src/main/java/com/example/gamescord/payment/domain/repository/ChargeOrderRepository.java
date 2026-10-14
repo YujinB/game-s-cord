@@ -3,6 +3,8 @@ package com.example.gamescord.payment.domain.repository;
 import com.example.gamescord.payment.domain.model.ChargeOrder;
 import com.example.gamescord.payment.domain.model.ChargeOrderStatus;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface ChargeOrderRepository {
@@ -10,4 +12,5 @@ public interface ChargeOrderRepository {
     Optional<ChargeOrder> findByPgOrderId(String pgOrderId);
     int changeStatus(Long id, ChargeOrderStatus from, ChargeOrderStatus to);
     int markDone(Long id, String paymentKey);
+    List<ChargeOrder> findStaleInProgress(LocalDateTime before);
 }

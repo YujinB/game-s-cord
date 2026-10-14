@@ -77,4 +77,44 @@ class TossPaymentsClientTest extends IntegrationTestSupport {
                 .isInstanceOf(TossPaymentUnknownException.class);
         assertThat(System.currentTimeMillis() - start).isLessThan(3_000);
     }
+
+    @Test
+    @DisplayName("주문번호로 결제를 조회하면 상태·paymentKey·금액을 돌려준다")
+    void findByOrderId() {
+        TOSS.stubFor(get(urlEqualTo("/v1/payments/orders/GAMESCORD-A")).willReturn(okJson("""
+                {"paymentKey":"pk_1","orderId":"GAMESCORD-A","status":"DONE","totalAmount":4680}
+                """)));
+
+        TossPayment payment = client.findByOrderId("GAMESCORD-A").orElseThrow();
+
+        assertThat(payment.isDone()).isTrue();
+        assertThat(payment.paymentKey()).isEqualTo("pk_1");
+        assertThat(payment.totalAmount()).isEqualTo(4680);
+        String basic = "Basic " + Base64.getEncoder()
+                .encodeToString("test_sk_dummy:".getBytes(StandardCharsets.UTF_8));
+        TOSS.verify(1, getRequestedFor(urlEqualTo("/v1/payments/orders/GAMESCORD-A"))
+                .withHeader("Authorization", equalTo(basic)));
+    }
+
+    @Test
+    @DisplayName("토스에 결제가 없으면(404) empty")
+    void findByOrderIdNotFound() {
+        TOSS.stubFor(get(urlEqualTo("/v1/payments/orders/GAMESCORD-A")).willReturn(aResponse()
+                .withStatus(404)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                        {"code":"NOT_FOUND_PAYMENT","message":"존재하지 않는 결제 정보 입니다."}
+                        """)));
+
+        assertThat(client.findByOrderId("GAMESCORD-A")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("조회가 5xx면 결과를 모르는 것으로 본다")
+    void findByOrderIdServerError() {
+        TOSS.stubFor(get(urlEqualTo("/v1/payments/orders/GAMESCORD-A")).willReturn(aResponse().withStatus(500)));
+
+        assertThatThrownBy(() -> client.findByOrderId("GAMESCORD-A"))
+                .isInstanceOf(TossPaymentUnknownException.class);
+    }
 }

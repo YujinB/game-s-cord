@@ -6,6 +6,8 @@ import com.example.gamescord.payment.domain.repository.ChargeOrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -29,11 +31,16 @@ public class ChargeOrderRepositoryImpl implements ChargeOrderRepository {
         if (!from.canTransitionTo(to)) {
             throw new IllegalArgumentException("허용되지 않은 주문 상태 전이: " + from + " → " + to);
         }
-        return chargeOrderJpaRepository.changeStatus(id, from, to);
+        return chargeOrderJpaRepository.changeStatus(id, from, to, LocalDateTime.now());
     }
 
     @Override
     public int markDone(Long id, String paymentKey) {
-        return chargeOrderJpaRepository.markDone(id, paymentKey);
+        return chargeOrderJpaRepository.markDone(id, paymentKey, LocalDateTime.now());
+    }
+
+    @Override
+    public List<ChargeOrder> findStaleInProgress(LocalDateTime before) {
+        return chargeOrderJpaRepository.findStaleInProgress(before);
     }
 }
