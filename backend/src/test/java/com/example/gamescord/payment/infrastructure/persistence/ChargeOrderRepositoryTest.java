@@ -19,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import static com.example.gamescord.payment.domain.model.ChargeOrderStatus.DONE;
 import static com.example.gamescord.payment.domain.model.ChargeOrderStatus.IN_PROGRESS;
 import static com.example.gamescord.payment.domain.model.ChargeOrderStatus.PENDING;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,6 +73,19 @@ class ChargeOrderRepositoryTest extends IntegrationTestSupport {
 
         assertThat(toInProgress(id)).isZero();
         assertThat(status(id)).isEqualTo("IN_PROGRESS");
+    }
+
+    @Test
+    @DisplayName("허용되지 않은 전이는 DB에 가기 전에 거절되고 상태는 그대로다")
+    void rejectDisallowedTransition() {
+        Long id = createOrder();
+
+        // @Repository 빈이 던진 IllegalArgumentException은 스프링이 InvalidDataAccessApiUsageException으로 감싼다
+        assertThatThrownBy(() -> tx.execute(s -> chargeOrderRepository.changeStatus(id, DONE, PENDING)))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> tx.execute(s -> chargeOrderRepository.changeStatus(id, PENDING, DONE)))
+                .hasRootCauseInstanceOf(IllegalArgumentException.class);
+        assertThat(status(id)).isEqualTo("PENDING");
     }
 
     @Test
