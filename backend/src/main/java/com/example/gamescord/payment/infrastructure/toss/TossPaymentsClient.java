@@ -57,8 +57,12 @@ public class TossPaymentsClient {
         try {
             // 2xx가 아니면 RestTemplate이 예외를 던지므로 상태 코드를 따로 검사하지 않음
             restTemplate.exchange(apiUrl + CONFIRM_PATH, HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
+        } catch (HttpClientErrorException.Conflict e) {
+            // 409: 같은 Idempotency-Key의 원래 요청을 토스가 아직 처리 중 → 실패가 아니라 결과 모름
+            log.warn("토스 승인 처리 중(409) | orderId={}", pgOrderId);
+            throw new TossPaymentUnknownException("토스가 같은 주문의 승인을 처리 중입니다.", e);
         } catch (HttpClientErrorException e) {
-            // 4xx: 토스가 승인을 거절함 (금액 불일치, 한도 초과 등) → 확실한 실패
+            // 그 외 4xx: 토스가 승인을 거절함 (금액 불일치, 한도 초과 등) → 확실한 실패
             String message = parseErrorMessage(e.getResponseBodyAsString());
             log.warn("토스 승인 거절 | orderId={} | status={} | message={}", pgOrderId, e.getStatusCode(), message);
             throw new TossPaymentRejectedException(message);

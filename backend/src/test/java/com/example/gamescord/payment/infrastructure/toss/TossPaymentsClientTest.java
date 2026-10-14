@@ -117,4 +117,18 @@ class TossPaymentsClientTest extends IntegrationTestSupport {
         assertThatThrownBy(() -> client.findByOrderId("GAMESCORD-A"))
                 .isInstanceOf(TossPaymentUnknownException.class);
     }
+
+    @Test
+    @DisplayName("토스가 409(같은 키 처리 중)를 주면 거절이 아니라 결과를 모르는 것으로 본다")
+    void conflictIsUnknown() {
+        TOSS.stubFor(post(urlEqualTo(CONFIRM_PATH)).willReturn(aResponse()
+                .withStatus(409)
+                .withHeader("Content-Type", "application/json")
+                .withBody("""
+                        {"code":"IDEMPOTENT_REQUEST_PROCESSING","message":"이전 멱등 요청이 처리 중입니다."}
+                        """)));
+
+        assertThatThrownBy(() -> client.confirm("pk_1", "GAMESCORD-A", 4680))
+                .isInstanceOf(TossPaymentUnknownException.class);
+    }
 }

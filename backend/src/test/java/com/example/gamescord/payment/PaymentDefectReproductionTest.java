@@ -116,6 +116,9 @@ class PaymentDefectReproductionTest extends IntegrationTestSupport {
         System.out.printf("[결함2 관찰] status=%s, point=%d, PG 승인 요청=%d건%n",
                 response.getStatusCode(), point(), confirmCalls());
 
+        assertThat(response.getStatusCode().value())
+                .as("토스가 거절한 승인은 클라이언트 요청 실패(400)")
+                .isEqualTo(400);
         assertThat(point())
                 .as("이 주문(%s, %d원)에 대한 PG 결제가 없는데 지급된 코인",
                         order.get("orderId").asText(), order.get("amount").asInt())
