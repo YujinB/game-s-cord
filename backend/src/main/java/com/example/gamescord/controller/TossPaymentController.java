@@ -5,7 +5,7 @@ import com.example.gamescord.dto.coin.TossPaymentConfirmRequestDTO;
 import com.example.gamescord.dto.coin.TossPaymentOrderRequestDTO;
 import com.example.gamescord.dto.coin.TossPaymentOrderResponseDTO;
 import com.example.gamescord.security.CustomUserDetails;
-import com.example.gamescord.service.coin.TossPaymentService;
+import com.example.gamescord.payment.application.ChargeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name = "bearerAuth")
 public class TossPaymentController {
 
-    private final TossPaymentService tossPaymentService;
+    private final ChargeService chargeService;
 
     @Operation(summary = "토스 결제 주문 생성")
     @PostMapping("/create-order")
@@ -30,7 +30,7 @@ public class TossPaymentController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody TossPaymentOrderRequestDTO requestDto) {
 
-        TossPaymentOrderResponseDTO response = tossPaymentService.createOrder(requestDto, userDetails.getUsername());
+        TossPaymentOrderResponseDTO response = chargeService.createOrder(requestDto, userDetails.getUsername());
         return ResponseEntity.ok(response);
     }
 
@@ -40,7 +40,7 @@ public class TossPaymentController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody TossPaymentConfirmRequestDTO requestDto) {
 
-        CoinResponseDTO response = tossPaymentService.confirmPayment(requestDto, userDetails.getUsername());
+        CoinResponseDTO response = chargeService.confirm(requestDto, userDetails.getUsername());
         return ResponseEntity.ok(response);
     }
 }

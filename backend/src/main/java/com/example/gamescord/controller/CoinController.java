@@ -28,15 +28,6 @@ public class CoinController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/charge")
-    public ResponseEntity<CoinResponseDTO> chargeCoin(
-            @AuthenticationPrincipal CustomUserDetails userDetails,
-            @Valid @RequestBody CoinChargeRequestDTO requestDto) {
-
-        CoinResponseDTO response = coinService.chargeCoin(userDetails.getUsername(), requestDto);
-        return ResponseEntity.ok(response);
-    }
-
     @GetMapping("/history")
     public ResponseEntity<List<CoinHistoryResponseDTO>> getCoinHistory(
             @AuthenticationPrincipal CustomUserDetails userDetails) {

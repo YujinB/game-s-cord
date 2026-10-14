@@ -23,7 +23,8 @@ const coinProducts = [
 
 const CoinItem = ({ id, points, price }) => {
   const [isProcessing, setIsProcessing] = useState(false);
-  const clientKey = "test_ck_vZnjEJeQVxz0nXJa6GjP8PmOoBN0";
+  // 토스 클라이언트 키는 frontend/.env.local의 VITE_TOSS_CLIENT_KEY (git에 올리지 않음)
+  const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY;
 
   const handleRecharge = async () => {
     // 1. 사용자 확인 팝업

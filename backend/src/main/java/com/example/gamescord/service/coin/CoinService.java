@@ -3,6 +3,7 @@ package com.example.gamescord.service.coin;
 import com.example.gamescord.domain.Coin;
 import com.example.gamescord.domain.User;
 import com.example.gamescord.dto.coin.*;
+import com.example.gamescord.payment.domain.model.CoinPackage;
 import com.example.gamescord.repository.coin.CoinRepository;
 import com.example.gamescord.repository.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +11,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -20,61 +20,19 @@ public class CoinService {
     private final UserRepository userRepository;
     private final CoinRepository coinRepository;
 
-    private static final Map<Integer, CoinPackageInfo> COIN_PACKAGES = Map.of(
-            1, new CoinPackageInfo(500, 4680),
-            2, new CoinPackageInfo(1000, 9360),
-            3, new CoinPackageInfo(2000, 18720),
-            4, new CoinPackageInfo(5000, 45600),
-            5, new CoinPackageInfo(10000, 91200),
-            6, new CoinPackageInfo(30000, 266400),
-            7, new CoinPackageInfo(50000, 444000),
-            8, new CoinPackageInfo(100000, 864000),
-            9, new CoinPackageInfo(300000, 2592000),
-            10, new CoinPackageInfo(500000, 4320000)
-    );
 
     @Transactional(readOnly = true)
     public PrepareChargeResponseDTO prepareCharge(PrepareChargeRequestDTO requestDto) {
-        CoinPackageInfo packageInfo = COIN_PACKAGES.get(requestDto.getPackageId());
-        if (packageInfo == null) {
-            throw new IllegalArgumentException("존재하지 않는 패키지입니다.");
-        }
+        // 패키지 정의는 결제와 같은 CoinPackage 한 곳 (없는 id면 "존재하지 않는 패키지입니다.")
+        CoinPackage coinPackage = CoinPackage.of(requestDto.getPackageId());
 
         List<String> paymentMethods = List.of("카드결제", "계좌이체", "간편 결제");
 
         return PrepareChargeResponseDTO.builder()
-                .coinAmount(packageInfo.coinAmount())
-                .paymentAmount(packageInfo.paymentAmount())
+                .coinAmount(coinPackage.getCoinAmount())
+                .paymentAmount(coinPackage.getPrice())
                 .paymentMethods(paymentMethods)
                 .build();
-    }
-
-    @Transactional
-    public CoinResponseDTO chargeCoin(String loginId, CoinChargeRequestDTO requestDto) {
-        CoinPackageInfo packageInfo = COIN_PACKAGES.get(requestDto.getPackageId());
-        if (packageInfo == null) {
-            throw new IllegalArgumentException("존재하지 않는 패키지입니다.");
-        }
-
-        List<String> validPaymentMethods = List.of("카드결제", "계좌이체", "간편결제");
-        if (!validPaymentMethods.contains(requestDto.getPaymentMethod())) {
-            throw new IllegalArgumentException("유효하지 않은 결제 수단입니다.");
-        }
-
-        User user = userRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-
-        user.setPoint(user.getPoint() + packageInfo.coinAmount());
-        userRepository.saveUser(user);
-
-        Coin newCoin = new Coin();
-        newCoin.setUsers(user);
-        newCoin.setCoinAmount(packageInfo.coinAmount()); // 양수
-        newCoin.setPaymentAmount(packageInfo.paymentAmount());
-        newCoin.setPaymentMethod(requestDto.getPaymentMethod()); // Set payment method from request
-        Coin savedCoin = coinRepository.save(newCoin);
-
-        return CoinResponseDTO.success("코인이 성공적으로 충전되었습니다.", savedCoin, user.getPoint());
     }
 
     @Transactional(readOnly = true)
@@ -110,7 +68,6 @@ public class CoinService {
         return CoinResponseDTO.success("환불 처리가 완료되었습니다.", user.getPoint());
     }
 
-    private record CoinPackageInfo(Integer coinAmount, Integer paymentAmount) {}
 
     @Transactional
     public Coin useCoinForMatch(User user, Long amount) {
