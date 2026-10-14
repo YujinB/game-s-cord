@@ -14,8 +14,16 @@ import java.time.LocalDateTime;
 @Entity
 @Getter
 @Table(name = "charge_order",
-        // 토스에 보내는 주문번호이자 Idempotency-Key이므로 중복 불가
-        uniqueConstraints = @UniqueConstraint(columnNames = "pg_order_id"))
+        uniqueConstraints = {
+                // 토스에 보내는 주문번호이자 Idempotency-Key이므로 중복 불가
+                @UniqueConstraint(name = "uk_charge_order_pg_order_id", columnNames = "pg_order_id"),
+                // 결제키 하나가 두 주문에 쓰일 수 없음 (결제키 재사용의 DB 최종 방어선, NULL은 여러 개 허용)
+                @UniqueConstraint(name = "uk_charge_order_payment_key", columnNames = "payment_key")},
+        indexes = {
+                // 대사: 오래된 IN_PROGRESS 찾기
+                @Index(name = "idx_charge_order_status_updated", columnList = "status, updated_at"),
+                // 만료 정리: 기한 지난 PENDING 찾기
+                @Index(name = "idx_charge_order_status_expires", columnList = "status, expires_at")})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class ChargeOrder extends BaseEntity {

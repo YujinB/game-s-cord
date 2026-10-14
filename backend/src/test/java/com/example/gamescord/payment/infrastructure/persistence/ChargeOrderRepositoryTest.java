@@ -131,6 +131,34 @@ class ChargeOrderRepositoryTest extends IntegrationTestSupport {
         assertThat(status(id)).isEqualTo("IN_PROGRESS");
     }
 
+    @Test
+    @DisplayName("같은 paymentKey를 두 주문에 저장할 수 없다 (결제키 재사용의 DB 최종 방어선)")
+    void rejectDuplicatePaymentKey() {
+        Long first = createOrder();
+        tx.executeWithoutResult(s -> chargeOrderRepository.save(
+                ChargeOrder.create(7L, 1, 4_680, 500, "GAMESCORD-TEST0002", LocalDateTime.now())));
+        Long second = jdbc.queryForObject("SELECT id FROM charge_order WHERE pg_order_id = ?", Long.class, "GAMESCORD-TEST0002");
+        toInProgress(first);
+        toInProgress(second);
+        markDone(first, "pk_same");
+
+        assertThatThrownBy(() -> markDone(second, "pk_same"))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        assertThat(status(second)).isEqualTo("IN_PROGRESS");
+    }
+
+    @Test
+    @DisplayName("대사·만료 조회용 인덱스가 만들어져 있다")
+    void indexesExist() {
+        List<String> indexes = jdbc.queryForList(
+                "SELECT DISTINCT index_name FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'charge_order'",
+                String.class);
+
+        assertThat(indexes).contains(
+                "uk_charge_order_pg_order_id", "uk_charge_order_payment_key",
+                "idx_charge_order_status_updated", "idx_charge_order_status_expires");
+    }
+
     private Long createOrder() {
         tx.executeWithoutResult(s -> chargeOrderRepository.save(
                 ChargeOrder.create(7L, 1, 4_680, 500, PG_ORDER_ID, LocalDateTime.now())));
