@@ -13,4 +13,5 @@ public interface ChargeOrderRepository {
     int changeStatus(Long id, ChargeOrderStatus from, ChargeOrderStatus to);
     int markDone(Long id, String paymentKey);
     List<ChargeOrder> findStaleInProgress(LocalDateTime before);
+    int expirePending(LocalDateTime now);
 }

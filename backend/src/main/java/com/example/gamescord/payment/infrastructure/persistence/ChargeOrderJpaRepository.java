@@ -35,4 +35,16 @@ public interface ChargeOrderJpaRepository extends JpaRepository<ChargeOrder, Lon
 
     @Query("select o from ChargeOrder o where o.status = com.example.gamescord.payment.domain.model.ChargeOrderStatus.IN_PROGRESS and o.updatedAt < :before")
     List<ChargeOrder> findStaleInProgress(@Param("before") LocalDateTime before);
+
+    // 기한이 지난 PENDING 주문을 한 번에 EXPIRED로.
+    // 조건부라 같은 순간 confirm의 PENDING → IN_PROGRESS와 겹쳐도 둘 중 하나만 성공
+    @Modifying
+    @Query("""
+            update ChargeOrder o
+            set o.status = com.example.gamescord.payment.domain.model.ChargeOrderStatus.EXPIRED,
+                o.updatedAt = :now
+            where o.status = com.example.gamescord.payment.domain.model.ChargeOrderStatus.PENDING
+              and o.expiresAt < :now
+            """)
+    int expirePending(@Param("now") LocalDateTime now);
 }

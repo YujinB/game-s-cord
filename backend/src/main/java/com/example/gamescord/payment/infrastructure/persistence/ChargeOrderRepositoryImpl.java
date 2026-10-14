@@ -43,4 +43,9 @@ public class ChargeOrderRepositoryImpl implements ChargeOrderRepository {
     public List<ChargeOrder> findStaleInProgress(LocalDateTime before) {
         return chargeOrderJpaRepository.findStaleInProgress(before);
     }
+
+    @Override
+    public int expirePending(LocalDateTime now) {
+        return chargeOrderJpaRepository.expirePending(now);
+    }
 }

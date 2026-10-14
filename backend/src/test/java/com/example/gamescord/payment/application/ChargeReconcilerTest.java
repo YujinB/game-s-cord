@@ -158,6 +158,41 @@ class ChargeReconcilerTest extends IntegrationTestSupport {
         TOSS.verify(0, getRequestedFor(urlEqualTo(LOOKUP_PATH)));
     }
 
+    @Test
+    @DisplayName("기한이 지난 PENDING 주문만 EXPIRED가 되고, 기한 안의 주문과 IN_PROGRESS 주문은 그대로다")
+    void expirePending() {
+        // setUp의 주문은 IN_PROGRESS. 여기에 PENDING 주문 두 개를 더 만든다
+        LocalDateTime now = LocalDateTime.now();
+        tx.executeWithoutResult(s -> {
+            chargeOrderRepository.save(ChargeOrder.create(userId, 1, PRICE, COIN, "GAMESCORD-OLD", now.minusHours(1)));
+            chargeOrderRepository.save(ChargeOrder.create(userId, 1, PRICE, COIN, "GAMESCORD-NEW", now));
+        });
+
+        int expired = reconciler.expirePending(now);
+
+        assertThat(expired).isEqualTo(1);
+        assertThat(statusOf("GAMESCORD-OLD")).isEqualTo("EXPIRED");
+        assertThat(statusOf("GAMESCORD-NEW")).isEqualTo("PENDING");
+        assertThat(status()).isEqualTo("IN_PROGRESS");
+    }
+
+    @Test
+    @DisplayName("만료된 주문은 confirm 선점(PENDING → IN_PROGRESS)이 되지 않는다")
+    void expiredOrderCannotBeClaimed() {
+        LocalDateTime now = LocalDateTime.now();
+        tx.executeWithoutResult(s -> chargeOrderRepository.save(
+                ChargeOrder.create(userId, 1, PRICE, COIN, "GAMESCORD-OLD", now.minusHours(1))));
+        reconciler.expirePending(now);
+        Long oldId = jdbc.queryForObject(
+                "SELECT id FROM charge_order WHERE pg_order_id = ?", Long.class, "GAMESCORD-OLD");
+
+        Integer claimed = tx.execute(s ->
+                chargeOrderRepository.changeStatus(oldId, ChargeOrderStatus.PENDING, ChargeOrderStatus.IN_PROGRESS));
+
+        assertThat(claimed).isZero();
+        assertThat(statusOf("GAMESCORD-OLD")).isEqualTo("EXPIRED");
+    }
+
     // ── helpers ──
 
     // 대사 기준(5분)이 지난 시각
@@ -169,6 +204,10 @@ class ChargeReconcilerTest extends IntegrationTestSupport {
         TOSS.stubFor(get(urlEqualTo(LOOKUP_PATH)).willReturn(okJson("""
                 {"paymentKey":"pk_recon","orderId":"%s","status":"%s","totalAmount":%d}
                 """.formatted(PG_ORDER_ID, status, totalAmount))));
+    }
+
+    private String statusOf(String pgOrderId) {
+        return jdbc.queryForObject("SELECT status FROM charge_order WHERE pg_order_id = ?", String.class, pgOrderId);
     }
 
     private String status() {

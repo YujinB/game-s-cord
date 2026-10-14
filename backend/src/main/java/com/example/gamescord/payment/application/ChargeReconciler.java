@@ -47,6 +47,16 @@ public class ChargeReconciler {
         }
     }
 
+    // 기한이 지난 PENDING 주문 정리. 토스 승인 전이라 돈과 무관하므로 토스 조회 없이 상태만 바꿈
+    public int expirePending(LocalDateTime now) {
+        Integer expired = transactionTemplate.execute(s -> chargeOrderRepository.expirePending(now));
+        int count = expired == null ? 0 : expired;
+        if (count > 0) {
+            log.info("만료 주문 정리 | {}건", count);
+        }
+        return count;
+    }
+
     private void reconcileOne(ChargeOrder order) {
         Optional<TossPayment> found = tossPaymentsClient.findByOrderId(order.getPgOrderId());
 

@@ -23,9 +23,17 @@ class ChargeOrderStatusTest {
             "DONE, FAILED, false",
             "FAILED, PENDING, false",
             "FAILED, IN_PROGRESS, false",
-            "FAILED, DONE, false"
+            "FAILED, DONE, false",
+            "PENDING, EXPIRED, true",
+            "IN_PROGRESS, EXPIRED, false",
+            "DONE, EXPIRED, false",
+            "FAILED, EXPIRED, false",
+            "EXPIRED, PENDING, false",
+            "EXPIRED, IN_PROGRESS, false",
+            "EXPIRED, DONE, false",
+            "EXPIRED, FAILED, false"
     })
-    @DisplayName("허용된 전이만 true (DONE·FAILED는 종료 상태)")
+    @DisplayName("허용된 전이만 true (DONE·FAILED·EXPIRED는 종료 상태)")
     void canTransitionTo(ChargeOrderStatus from, ChargeOrderStatus to, boolean allowed) {
         assertThat(from.canTransitionTo(to)).isEqualTo(allowed);
     }
