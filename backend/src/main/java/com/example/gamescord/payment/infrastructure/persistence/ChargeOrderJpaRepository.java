@@ -21,6 +21,19 @@ public interface ChargeOrderJpaRepository extends JpaRepository<ChargeOrder, Lon
     int changeStatus(@Param("id") Long id, @Param("from") ChargeOrderStatus from, @Param("to") ChargeOrderStatus to,
                      @Param("now") LocalDateTime now);
 
+    // confirm 선점: 상태와 기한을 한 문장에서 확인. 앱의 기한 검사와 이 UPDATE 사이에 기한이 지나도 선점되지 않음
+    // (expirePending의 expiresAt < :now와 경계가 겹치지 않게 >=)
+    @Modifying
+    @Query("""
+            update ChargeOrder o
+            set o.status = com.example.gamescord.payment.domain.model.ChargeOrderStatus.IN_PROGRESS,
+                o.updatedAt = :now
+            where o.id = :id
+              and o.status = com.example.gamescord.payment.domain.model.ChargeOrderStatus.PENDING
+              and o.expiresAt >= :now
+            """)
+    int claim(@Param("id") Long id, @Param("now") LocalDateTime now);
+
     @Modifying
     // enum 이름이 바뀌면 서버 시작 시 쿼리 검사에서 에러 (문자열 리터럴은 조용히 0행이 됨)
     @Query("""

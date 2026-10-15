@@ -76,6 +76,26 @@ class ChargeOrderRepositoryTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("confirm 선점은 기한 안의 PENDING 주문만 IN_PROGRESS로 바꾼다")
+    void claim() {
+        Long id = createOrder();
+
+        assertThat(claim(id)).isEqualTo(1);
+        assertThat(status(id)).isEqualTo("IN_PROGRESS");
+        assertThat(claim(id)).isZero();
+    }
+
+    @Test
+    @DisplayName("기한이 지난 주문은 만료 작업이 아직 돌지 않아 PENDING이어도 선점되지 않는다")
+    void claimRejectsExpiredPending() {
+        Long id = createOrder();
+        jdbc.update("UPDATE charge_order SET expires_at = ? WHERE id = ?", LocalDateTime.now().minusSeconds(1), id);
+
+        assertThat(claim(id)).isZero();
+        assertThat(status(id)).isEqualTo("PENDING");
+    }
+
+    @Test
     @DisplayName("허용되지 않은 전이는 DB에 가기 전에 거절되고 상태는 그대로다")
     void rejectDisallowedTransition() {
         Long id = createOrder();
@@ -167,6 +187,10 @@ class ChargeOrderRepositoryTest extends IntegrationTestSupport {
 
     private Integer toInProgress(Long id) {
         return tx.execute(s -> chargeOrderRepository.changeStatus(id, PENDING, IN_PROGRESS));
+    }
+
+    private Integer claim(Long id) {
+        return tx.execute(s -> chargeOrderRepository.claim(id));
     }
 
     private Integer markDone(Long id, String paymentKey) {
