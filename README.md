@@ -40,10 +40,50 @@
 
 ```mermaid
 erDiagram
-    account ||--o{ ledger_entry : ""
+    charge_order ||--o| ledger_transaction : "ref_id (CHARGE)"
     ledger_transaction ||--|{ ledger_entry : "2행 이상, 합 0"
-    charge_order ||--o| ledger_transaction : "ref (CHARGE)"
+    account ||--o{ ledger_entry : ""
+
+    charge_order {
+        bigint id PK
+        varchar pg_order_id UK "토스 orderId = Idempotency-Key"
+        bigint user_id "users_id (ID로만 참조)"
+        int package_id
+        int amount "결제 금액(원), 서버가 확정"
+        int coin_amount
+        varchar status "PENDING·IN_PROGRESS·DONE·FAILED·EXPIRED"
+        varchar payment_key UK "결제키 재사용 차단"
+        datetime expires_at
+        datetime updated_at
+    }
+    ledger_transaction {
+        bigint id PK
+        varchar transaction_type "UK(transaction_type, ref_type, ref_id)"
+        varchar ref_type
+        bigint ref_id "charge_order.id"
+    }
+    ledger_entry {
+        bigint id PK
+        bigint transaction_id FK
+        bigint account_id FK
+        bigint amount "부호 있음, 코인"
+        bigint balance_after "유저 계좌만"
+    }
+    account {
+        bigint id PK
+        varchar account_type "UK(account_type, owner_user_id)"
+        bigint owner_user_id "0 = 시스템 계좌"
+        bigint balance "유저 계좌만, 시스템은 NULL"
+    }
 ```
+
+| 제약·인덱스 | 역할 |
+|---|---|
+| `charge_order.payment_key` UNIQUE | 결제키 하나가 두 주문에 쓰이지 못하게 막음 |
+| `ledger_transaction (transaction_type, ref_type, ref_id)` UNIQUE | 같은 주문으로 코인이 두 번 지급되지 못하게 막음 (3중 방어 ③) |
+| `account (account_type, owner_user_id)` UNIQUE | 유저·종류마다 계좌 하나 (시스템 계좌는 owner 0, MySQL UNIQUE가 NULL 중복을 막지 않아서) |
+| `charge_order (status, updated_at)` · `(status, expires_at)` | 대사(5분 지난 IN_PROGRESS)·만료(기한 지난 PENDING) 조회 |
+| `ledger_entry (account_id, id)` | 계좌별 내역 최신순 조회 |
 
 ## 3. 주문 상태 머신과 3중 방어
 
