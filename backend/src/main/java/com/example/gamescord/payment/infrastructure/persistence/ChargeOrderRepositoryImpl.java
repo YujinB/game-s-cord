@@ -35,6 +35,12 @@ public class ChargeOrderRepositoryImpl implements ChargeOrderRepository {
     }
 
     @Override
+    public int claim(Long id) {
+        // 기한은 UPDATE를 실행하는 시각 기준으로 판정
+        return chargeOrderJpaRepository.claim(id, LocalDateTime.now());
+    }
+
+    @Override
     public int markDone(Long id, String paymentKey) {
         return chargeOrderJpaRepository.markDone(id, paymentKey, LocalDateTime.now());
     }

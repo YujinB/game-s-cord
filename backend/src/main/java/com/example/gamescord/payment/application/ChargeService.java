@@ -58,11 +58,10 @@ public class ChargeService {
         User user = userRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
         order.validateOwnerAndAmount(user.getId(), request.getAmount());
-        order.validateNotExpired(LocalDateTime.now());
+        order.validateNotExpired(LocalDateTime.now()); // 만료 안내 메시지용. 실제 보장은 아래 선점 UPDATE의 기한 조건
 
-        // b. 주문 선점: PENDING → IN_PROGRESS는 한 요청만 성공 (멱등성 1층). 실패하면 토스를 부르지 않음
-        Integer claimed = transactionTemplate.execute(s ->
-                chargeOrderRepository.changeStatus(order.getId(), ChargeOrderStatus.PENDING, ChargeOrderStatus.IN_PROGRESS));
+        // b. 주문 선점: 기한 안의 PENDING → IN_PROGRESS는 한 요청만 성공 (멱등성 1층). 실패하면 토스를 부르지 않음
+        Integer claimed = transactionTemplate.execute(s -> chargeOrderRepository.claim(order.getId()));
         if (claimed == null || claimed != 1) {
             throw new IllegalStateException("이미 처리 중이거나 처리된 주문입니다.");
         }

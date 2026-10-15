@@ -11,6 +11,7 @@ public interface ChargeOrderRepository {
     void save(ChargeOrder order);
     Optional<ChargeOrder> findByPgOrderId(String pgOrderId);
     int changeStatus(Long id, ChargeOrderStatus from, ChargeOrderStatus to);
+    int claim(Long id);
     int markDone(Long id, String paymentKey);
     List<ChargeOrder> findStaleInProgress(LocalDateTime before);
     int expirePending(LocalDateTime now);
