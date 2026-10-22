@@ -63,6 +63,9 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-resources/**",
 
+                                // Actuator (노출 범위는 프로필 설정이 결정, 기본은 health만)
+                                "/actuator/**",
+
                                 // Error
                                 "/error"
 
